@@ -55,8 +55,12 @@
 	_readyToTerminate = false;
 	_frameCount = 0;
 
+	// デフォルトの GPU デバイスを取得する
+	_device = MTLCreateSystemDefaultDevice();
+	
 	// Metal 対応の view を作成する
-	_view = [[SivMetalMTKView alloc] init];
+	_view = [[SivMetalMTKView alloc] initWithFrame:CGRectMake(0, 0, 800, 600)
+											device:_device];
 	// ウィンドウに view を設定する
 	[_window setContentView:_view];
 	// ウィンドウタイトルを変更する
@@ -65,10 +69,6 @@
 	[NSApp activateIgnoringOtherApps:YES];
 	[_window makeKeyAndOrderFront:self];
 	
-	// デフォルトの GPU デバイスを取得する
-	_device = MTLCreateSystemDefaultDevice();
-	// Metal オブジェクトの作成に使うデバイスを設定する
-	[_view setDevice: _device];
 	// view の drawable のピクセルフォーマットを設定する
 	[_view setColorPixelFormat:MTLPixelFormatBGRA8Unorm];
 	// depthStencilTexture のフォーマットを設定する
