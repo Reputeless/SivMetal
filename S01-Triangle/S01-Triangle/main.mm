@@ -76,8 +76,7 @@
 	// MSAA を設定する
 	// 1, 4 はすべての macOS でサポートされている
 	// 参考: https://developer.apple.com/documentation/metal/mtldevice/1433355-supportstexturesamplecount
-	// [!FIXME] 1 以外を設定して、Retina ディスプレイなど、(backingScaleFactor != 1.0) な画面で起動するとエラー
-	//[_view setSampleCount:1];
+	[_view setSampleCount:1];
 	// drawable クリア時の色を設定する (RGBA)
 	[_view setClearColor:MTLClearColorMake(0.8, 0.9, 1.0, 1.0)];
 	// mainLoop から draw するための設定
@@ -239,8 +238,8 @@
 										  length:sizeof(triangleVertices)
 										 atIndex:VertexInputIndex::Vertices];
 			
-			// Retina などのスケーリングを考慮した表示倍率
-			const float scale = [[NSScreen mainScreen] backingScaleFactor];
+			// ウィンドウの表示スケーリングを考慮
+			const float scale = [_window backingScaleFactor];;
 			viewportSize.x /= scale;
 			viewportSize.y /= scale;
 			
@@ -282,6 +281,9 @@
 - (void)mainLoop
 {
 	NSLog(@"#SivMetal# mainLoop");
+	
+	// drawable を初期化
+	[_view draw];
 	
 	while ([self handleMessages])
 	{
