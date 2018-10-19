@@ -11,7 +11,7 @@
 # import <Cocoa/Cocoa.h>
 # import <Metal/Metal.h>
 # import <MetalKit/MetalKit.h>
-# import "ShaderTypes.h"
+# import "ShaderTypes.hpp"
 
 @interface AppDelegate : NSObject <NSApplicationDelegate>
 // MainMenu.xib - Window
@@ -49,7 +49,7 @@
 // アプリケーションの初期化
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
-	NSLog(@"#SivMetal# applicationDidFinishLaunching");
+	NSLog(@"#SivMetal# (1) applicationDidFinishLaunching");
 	
 	_shouldKeepRunning = true;
 	_readyToTerminate = false;
@@ -149,7 +149,7 @@
 // アプリケーションが終了
 - (void)applicationWillTerminate:(NSNotification *)aNotification
 {
-	NSLog(@"#SivMetal# applicationWillTerminate");
+	NSLog(@"#SivMetal# (4) applicationWillTerminate");
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)theApplication
@@ -280,7 +280,7 @@
 // メインループ
 - (void)mainLoop
 {
-	NSLog(@"#SivMetal# mainLoop");
+	NSLog(@"#SivMetal# (2) mainLoop");
 	
 	// drawable を初期化
 	[_view draw];
@@ -292,7 +292,7 @@
 		[self draw];
 	}
 	
-	NSLog(@"#SivMetal# ~mainLoop");
+	NSLog(@"#SivMetal# (3) ~mainLoop");
 	
 	_readyToTerminate = true;
 	

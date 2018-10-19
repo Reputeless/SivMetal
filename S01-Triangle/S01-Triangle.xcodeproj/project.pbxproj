@@ -24,7 +24,7 @@
 		2C6241D12178AAD700921C84 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
 		2C6241D32178AAD700921C84 /* S01_Triangle.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = S01_Triangle.entitlements; sourceTree = "<group>"; };
 		2C6241D92178AB6C00921C84 /* Shaders.metal */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
-		2C6241DA2178AB6C00921C84 /* ShaderTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ShaderTypes.h; sourceTree = "<group>"; };
+		2C6241DA2178AB6C00921C84 /* ShaderTypes.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ShaderTypes.hpp; sourceTree = "<group>"; };
 		2C6241DD2178AB9C00921C84 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		2C6241DE2178AB9C00921C84 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		2C6241E12178ABA100921C84 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
@@ -65,7 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				2C6241D92178AB6C00921C84 /* Shaders.metal */,
-				2C6241DA2178AB6C00921C84 /* ShaderTypes.h */,
+				2C6241DA2178AB6C00921C84 /* ShaderTypes.hpp */,
 				2C6241CB2178AAD700921C84 /* Assets.xcassets */,
 				2C6241CD2178AAD700921C84 /* MainMenu.xib */,
 				2C6241D02178AAD700921C84 /* Info.plist */,
