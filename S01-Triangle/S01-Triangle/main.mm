@@ -16,11 +16,15 @@
 @interface AppDelegate : NSObject <NSApplicationDelegate>
 // MainMenu.xib - Window
 @property (weak) IBOutlet NSWindow *window;
+
++ (AppDelegate *)sharedAppDelegate;
 @end
 
 // Metal で描画できる view, MTKView のサブクラス
 @interface SivMetalMTKView : MTKView
 @end
+
+void Main();
 
 @implementation AppDelegate
 {
@@ -44,6 +48,11 @@
 	
 	// CommandBuffer を発行するオブジェクト
 	id<MTLCommandQueue> _commandQueue;
+}
+
++ (AppDelegate *)sharedAppDelegate
+{
+	return (AppDelegate *)[NSApplication sharedApplication].delegate;
 }
 
 // アプリケーションの初期化
@@ -161,6 +170,8 @@
 // イベントを処理
 - (bool)handleMessages
 {
+	++_frameCount;
+	
 	@autoreleasepool
 	{
 		for (;;)
@@ -285,12 +296,7 @@
 	// drawable を初期化
 	[_view draw];
 	
-	while ([self handleMessages])
-	{
-		++_frameCount;
-		
-		[self draw];
-	}
+	Main();
 	
 	NSLog(@"#SivMetal# (3) ~mainLoop");
 	
@@ -336,4 +342,25 @@
 int main(int argc, const char *argv[])
 {
 	return NSApplicationMain(argc, argv);
+}
+
+namespace System
+{
+	bool Update()
+	{
+		return [[AppDelegate sharedAppDelegate] handleMessages];
+	}
+}
+
+void Draw()
+{
+	return [[AppDelegate sharedAppDelegate] draw];
+}
+
+void Main()
+{
+	while (System::Update())
+	{
+		Draw();
+	}
 }
