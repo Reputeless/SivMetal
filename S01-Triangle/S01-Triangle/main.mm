@@ -21,34 +21,39 @@
 @end
 
 // Metal で描画できる view, MTKView のサブクラス
-@interface SivMetalMTKView : MTKView
+@interface AppMTKView : MTKView
 @end
 
 void Main();
 
-@implementation AppDelegate
+struct InternalSivMetalData
 {
 	// アプリケーションを続行するか
-	bool _shouldKeepRunning;
+	bool shouldKeepRunning = true;
 	
 	// mainLoop が完了したか
-	bool _readyToTerminate;
-
+	bool readyToTerminate = false;
+	
 	// 現在のフレームカウント
-	int _frameCount;
+	int frameCount = 0;
 	
 	// GPU のインタフェース
-	id<MTLDevice> _device;
+	id<MTLDevice> device;
+	
+	// ウィンドウ
+	NSWindow* window;
 	
 	// view
-	SivMetalMTKView *_view;
+	AppMTKView* mtkView;
 	
 	// RenderPipelineState: レンダリングパイプラインを表現するオブジェクト
-	id<MTLRenderPipelineState> _pipelineState;
+	id<MTLRenderPipelineState> pipelineState;
 	
 	// CommandBuffer を発行するオブジェクト
-	id<MTLCommandQueue> _commandQueue;
-}
+	id<MTLCommandQueue> commandQueue;
+} siv;
+
+@implementation AppDelegate
 
 + (AppDelegate *)sharedAppDelegate
 {
@@ -59,40 +64,38 @@ void Main();
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
 	NSLog(@"#SivMetal# (1) applicationDidFinishLaunching");
-	
-	_shouldKeepRunning = true;
-	_readyToTerminate = false;
-	_frameCount = 0;
 
 	// デフォルトの GPU デバイスを取得する
-	_device = MTLCreateSystemDefaultDevice();
+	siv.device = MTLCreateSystemDefaultDevice();
 	
 	// Metal 対応の view を作成する
-	_view = [[SivMetalMTKView alloc] initWithFrame:CGRectMake(0, 0, 800, 600)
-											device:_device];
+	siv.mtkView = [[AppMTKView alloc] initWithFrame:CGRectMake(0, 0, 800, 600)
+											device:siv.device];
+	
+	// ウィンドウ
+	siv.window = _window;
+	
 	// ウィンドウに view を設定する
-	[_window setContentView:_view];
-	// ウィンドウタイトルを変更する
-	[_window setTitle:@"SivMetal | Experimental Metal project for OpenSiv3D"];
+	[siv.window setContentView:siv.mtkView];
 	// ウィンドウを最前面に表示させる
 	[NSApp activateIgnoringOtherApps:YES];
-	[_window makeKeyAndOrderFront:self];
+	[siv.window makeKeyAndOrderFront:self];
 	
 	// view の drawable のピクセルフォーマットを設定する
-	[_view setColorPixelFormat:MTLPixelFormatBGRA8Unorm];
+	[siv.mtkView setColorPixelFormat:MTLPixelFormatBGRA8Unorm];
 	// depthStencilTexture のフォーマットを設定する
-	[_view setDepthStencilPixelFormat:MTLPixelFormatDepth32Float_Stencil8];
+	[siv.mtkView setDepthStencilPixelFormat:MTLPixelFormatDepth32Float_Stencil8];
 	// MSAA を設定する
 	// 1, 4 はすべての macOS でサポートされている
 	// 参考: https://developer.apple.com/documentation/metal/mtldevice/1433355-supportstexturesamplecount
-	[_view setSampleCount:1];
+	[siv.mtkView setSampleCount:1];
 	// drawable クリア時の色を設定する (RGBA)
-	[_view setClearColor:MTLClearColorMake(0.8, 0.9, 1.0, 1.0)];
+	[siv.mtkView setClearColor:MTLClearColorMake(0.8, 0.9, 1.0, 1.0)];
 	// mainLoop から draw するための設定
-	[_view setPaused:YES];
+	[siv.mtkView setPaused:YES];
 
 	// プロジェクト内の .metal 拡張子のシェーダファイルをすべてロードする
-	id<MTLLibrary> defaultLibrary = [_device newDefaultLibrary];
+	id<MTLLibrary> defaultLibrary = [siv.device newDefaultLibrary];
 	// シェーダ関数 `vertexShader` をロードする
 	id<MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
 	// シェーダ関数 `fragmentShader` をロードする
@@ -103,7 +106,7 @@ void Main();
 	pipelineStateDescriptor.label = @"Simple Pipeline"; // ラベルをつけておくとデバッグ時に便利（任意）
 	pipelineStateDescriptor.vertexFunction = vertexFunction; // 頂点シェーダの関数
 	pipelineStateDescriptor.fragmentFunction = fragmentFunction; // フラグメントシェーダの関数
-	pipelineStateDescriptor.colorAttachments[0].pixelFormat = _view.colorPixelFormat; // 出力先のフォーマット
+	pipelineStateDescriptor.colorAttachments[0].pixelFormat = siv.mtkView.colorPixelFormat; // 出力先のフォーマット
 	pipelineStateDescriptor.colorAttachments[0].blendingEnabled = YES; // アルファブレンディングのための設定
 	pipelineStateDescriptor.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorSourceAlpha;
 	pipelineStateDescriptor.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
@@ -111,15 +114,15 @@ void Main();
 	pipelineStateDescriptor.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorZero;
 	pipelineStateDescriptor.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOne;
 	pipelineStateDescriptor.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
-	pipelineStateDescriptor.rasterSampleCount = _view.sampleCount; // MSAA
-	pipelineStateDescriptor.depthAttachmentPixelFormat = _view.depthStencilPixelFormat; // 深度フォーマット
-	pipelineStateDescriptor.stencilAttachmentPixelFormat = _view.depthStencilPixelFormat; // ステンシルフォーマット
+	pipelineStateDescriptor.rasterSampleCount = siv.mtkView.sampleCount; // MSAA
+	pipelineStateDescriptor.depthAttachmentPixelFormat = siv.mtkView.depthStencilPixelFormat; // 深度フォーマット
+	pipelineStateDescriptor.stencilAttachmentPixelFormat = siv.mtkView.depthStencilPixelFormat; // ステンシルフォーマット
 
 	// RenderPipelineState を作成する
 	NSError *error = NULL;
-	_pipelineState = [_device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
+	siv.pipelineState = [siv.device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
 															 error:&error];
-	if (!_pipelineState)
+	if (!siv.pipelineState)
 	{
 		// RenderPipelineDescriptor の記述が間違っているとエラー
 		NSLog(@"#SivMetal# Failed to created pipeline state, error %@", error);
@@ -127,7 +130,7 @@ void Main();
 	}
 	
 	// CommandQueue を作成。1 つのアプリケーションに 1 つ作るだけで良い
-	_commandQueue = [_device newCommandQueue];
+	siv.commandQueue = [siv.device newCommandQueue];
 	
 	// mainLoop を実行する
 	[self performSelectorOnMainThread:@selector(mainLoop) withObject:nil waitUntilDone:NO];
@@ -139,17 +142,17 @@ void Main();
 	NSLog(@"#SivMetal# applicationShouldTerminate");
 	
 	// handleMessages が false を返すようにする
-	_shouldKeepRunning = false;
+	siv.shouldKeepRunning = false;
 	
-	if (_readyToTerminate)
+	if (siv.readyToTerminate)
 	{
-		NSLog(@"#SivMetal# (_readyToTerminate == true)");
+		NSLog(@"#SivMetal# (readyToTerminate == true)");
 		// mainLoop が終了していたらアプリケーションを終了
 		return NSTerminateNow;
 	}
 	else
 	{
-		NSLog(@"#SivMetal# (_readyToTerminate == false)");
+		NSLog(@"#SivMetal# (readyToTerminate == false)");
 		// mainLoop が終了するまではアプリケーションを終了しない
 		return NSTerminateCancel;
 	}
@@ -170,7 +173,7 @@ void Main();
 // イベントを処理
 - (bool)handleMessages
 {
-	++_frameCount;
+	++siv.frameCount;
 	
 	@autoreleasepool
 	{
@@ -189,13 +192,13 @@ void Main();
 		}
 	}
 	
-	return _shouldKeepRunning;
+	return siv.shouldKeepRunning;
 }
 
 - (BOOL)isVisible
 {
-	return [_window isVisible]
-		&& ([_window occlusionState] & NSWindowOcclusionStateVisible);
+	return [siv.window isVisible]
+		&& ([siv.window occlusionState] & NSWindowOcclusionStateVisible);
 }
 
 // 描画処理
@@ -204,7 +207,7 @@ void Main();
 	@autoreleasepool
 	{
 		// アニメーション
-		const float x = 300.0f - (_frameCount * 0.2f);
+		const float x = 300.0f - (siv.frameCount * 0.2f);
 		
 		// 三角形を描くための頂点データ
 		// アライメントされたベクトルデータ simf::float2, simd::float4 を
@@ -218,11 +221,11 @@ void Main();
 		};
 		
 		// 現在の drawable に使う、新しいレンダーパスのための CommandBuffer を作成
-		id<MTLCommandBuffer> commandBuffer = [_commandQueue commandBuffer];
+		id<MTLCommandBuffer> commandBuffer = [siv.commandQueue commandBuffer];
 		commandBuffer.label = @"MyCommand"; // ラベルをつけておくとデバッグ時に便利（任意）
 
 		// 現在の drawable texture から RenderPassDescriptor を作成
-		MTLRenderPassDescriptor *renderPassDescriptor = _view.currentRenderPassDescriptor;
+		MTLRenderPassDescriptor *renderPassDescriptor = siv.mtkView.currentRenderPassDescriptor;
 		
 		if(renderPassDescriptor != nil)
 		{
@@ -234,25 +237,25 @@ void Main();
 			
 			// 現在のウィンドウの解像度を取得
 			simd::float2 viewportSize;
-			viewportSize.x = [_view drawableSize].width;
-			viewportSize.y = [_view drawableSize].height;
+			viewportSize.x = [siv.mtkView drawableSize].width;
+			viewportSize.y = [siv.mtkView drawableSize].height;
 
 			// RenderCommandEncoder にビューポートを設定する
 			[renderCommandEncoder setViewport:(MTLViewport){0, 0, viewportSize.x, viewportSize.y, -1.0, 1.0 }];
 			
 			// RenderPipelineState を設定する
-			[renderCommandEncoder setRenderPipelineState:_pipelineState];
+			[renderCommandEncoder setRenderPipelineState:siv.pipelineState];
+			
+			// ウィンドウの表示スケーリングを考慮
+			const float scale = [siv.window backingScaleFactor];;
+			viewportSize.x /= scale;
+			viewportSize.y /= scale;
 			
 			// 頂点シェーダ用のデータ [[buffer(0)]] をセット
 			// setVertexBytes で扱えるデータは 4kB 以下。大きなデータは setVertexBuffer を使う
 			[renderCommandEncoder setVertexBytes:triangleVertices
 										  length:sizeof(triangleVertices)
 										 atIndex:VertexInputIndex::Vertices];
-			
-			// ウィンドウの表示スケーリングを考慮
-			const float scale = [_window backingScaleFactor];;
-			viewportSize.x /= scale;
-			viewportSize.y /= scale;
 			
 			// 頂点シェーダ用のデータ [[buffer(1)]] をセット
 			[renderCommandEncoder setVertexBytes:&viewportSize
@@ -269,7 +272,7 @@ void Main();
 		}
 		
 		// 現在の drawable を表示させるコマンドを CommandBuffer に登録
-		[commandBuffer presentDrawable:_view.currentDrawable];
+		[commandBuffer presentDrawable:siv.mtkView.currentDrawable];
 		
 		// GPU に CommandBuffer を実行してもらう
 		[commandBuffer commit];
@@ -284,7 +287,7 @@ void Main();
 		}
 		
 		// 描画内容を反映 (vSync)
-		[_view draw];
+		[siv.mtkView draw];
 	}
 }
 
@@ -294,13 +297,13 @@ void Main();
 	NSLog(@"#SivMetal# (2) mainLoop");
 	
 	// drawable を初期化
-	[_view draw];
+	[siv.mtkView draw];
 	
 	Main();
 	
 	NSLog(@"#SivMetal# (3) ~mainLoop");
 	
-	_readyToTerminate = true;
+	siv.readyToTerminate = true;
 	
 	// applicationShouldTerminate を呼び出してアプリケーションの終了を通知
 	[NSApp terminate:nil];
@@ -308,7 +311,7 @@ void Main();
 
 @end
 
-@implementation SivMetalMTKView
+@implementation AppMTKView
 
 - (BOOL)isOpaque
 {
@@ -344,23 +347,40 @@ int main(int argc, const char *argv[])
 	return NSApplicationMain(argc, argv);
 }
 
-namespace System
+namespace SivMetal
 {
+	void SetWindowTitle(const char* title);
+
+	bool Update();
+	
+	void Draw();
+}
+
+namespace SivMetal
+{
+	void SetWindowTitle(const char* title)
+	{
+		[siv.window setTitle:[NSString stringWithUTF8String:title]];
+	}
+	
 	bool Update()
 	{
 		return [[AppDelegate sharedAppDelegate] handleMessages];
 	}
-}
-
-void Draw()
-{
-	return [[AppDelegate sharedAppDelegate] draw];
+	
+	void Draw()
+	{
+		return [[AppDelegate sharedAppDelegate] draw];
+	}
 }
 
 void Main()
 {
-	while (System::Update())
+	// ウィンドウタイトルを変更する
+	SivMetal::SetWindowTitle("SivMetal | Experimental Metal project for OpenSiv3D");
+	
+	while (SivMetal::Update())
 	{
-		Draw();
+		SivMetal::Draw();
 	}
 }
