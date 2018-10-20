@@ -4,7 +4,8 @@ An experimental Metal project for OpenSiv3D
 ## S01. Triangle
 ![screenshot](S01-Triangle/S01-Triangle/screenshot.png)
 
-## S02. Two triangles
+## S02. Two Triangles
+![screenshot](S02-TwoTriangles/S02-TwoTriangles/screenshot.png)
 
 ## S03. Shapes
 
