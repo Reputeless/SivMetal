@@ -224,7 +224,7 @@ struct InternalSivMetalData
 		id<MTLCommandBuffer> commandBuffer = [siv.commandQueue commandBuffer];
 		commandBuffer.label = @"MyCommand"; // ラベルをつけておくとデバッグ時に便利（任意）
 
-		// 現在の drawable texture から RenderPassDescriptor を作成
+		// 現在の drawable texture の RenderPassDescriptor を取得する
 		MTLRenderPassDescriptor *renderPassDescriptor = siv.mtkView.currentRenderPassDescriptor;
 		
 		if(renderPassDescriptor != nil)
