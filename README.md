@@ -4,9 +4,11 @@ An experimental Metal project for OpenSiv3D
 ## S01. Triangle
 ![screenshot](S01-Triangle/S01-Triangle/screenshot.png)
 
-## S02. Shapes
+## S02. Two triangles
 
-## S03. Texture
+## S03. Shapes
+
+## S04. Texture
 
 
 ## References
