@@ -12,6 +12,9 @@
 # import <Metal/Metal.h>
 # import <MetalKit/MetalKit.h>
 # import "ShaderTypes.hpp"
+# import "SivMetalEngine.hpp"
+# import "System/ISystem.hpp"
+# import "Window/IWindow.hpp"
 
 @interface AppDelegate : NSObject <NSApplicationDelegate>
 // MainMenu.xib - Window
@@ -34,9 +37,6 @@ void Main();
 	// mainLoop が完了したか
 	bool _readyToTerminate;
 
-	// 現在のフレームカウント
-	int _frameCount;
-	
 	// GPU のインタフェース
 	id<MTLDevice> _device;
 	
@@ -55,14 +55,25 @@ void Main();
 	return (AppDelegate *)[NSApplication sharedApplication].delegate;
 }
 
+- (void)pollEvents:(bool *)shouldKeepRunning
+{
+	if (shouldKeepRunning)
+	{
+		*shouldKeepRunning = _shouldKeepRunning;
+	}
+}
+
 // アプリケーションの初期化
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
 	NSLog(@"#SivMetal# (1) applicationDidFinishLaunching");
 	
+	siv::SivMetalEngine::GetSystem()->init();
+	
+	siv::SivMetalEngine::GetWindow()->init((__bridge void*)_window);
+	
 	_shouldKeepRunning = true;
 	_readyToTerminate = false;
-	_frameCount = 0;
 
 	// デフォルトの GPU デバイスを取得する
 	_device = MTLCreateSystemDefaultDevice();
@@ -167,31 +178,6 @@ void Main();
 	return YES;
 }
 
-// イベントを処理
-- (bool)handleMessages
-{
-	++_frameCount;
-	
-	@autoreleasepool
-	{
-		for (;;)
-		{
-			NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny
-												untilDate:[NSDate distantPast]
-												   inMode:NSDefaultRunLoopMode
-												  dequeue:YES];
-			if (event == nil)
-			{
-				break;
-			}
-			
-			[NSApp sendEvent:event];
-		}
-	}
-	
-	return _shouldKeepRunning;
-}
-
 - (BOOL)isVisible
 {
 	return [_window isVisible]
@@ -204,7 +190,7 @@ void Main();
 	@autoreleasepool
 	{
 		// アニメーション
-		const float x = 300.0f - (_frameCount * 0.2f);
+		const float x = 300.0f - (0 * 0.2f);
 		
 		// 三角形を描くための頂点データ
 		// アライメントされたベクトルデータ simf::float2, simd::float4 を
@@ -341,26 +327,20 @@ void Main();
 
 int main(int argc, const char *argv[])
 {
+	siv::SivMetalEngine engine;
+	
 	return NSApplicationMain(argc, argv);
 }
 
-namespace System
+namespace siv
 {
-	bool Update()
+	void PollEvents(bool* shouldKeepRunning)
 	{
-		return [[AppDelegate sharedAppDelegate] handleMessages];
+		[[AppDelegate sharedAppDelegate] pollEvents:shouldKeepRunning];
 	}
-}
-
-void Draw()
-{
-	return [[AppDelegate sharedAppDelegate] draw];
-}
-
-void Main()
-{
-	while (System::Update())
+	
+	void Draw()
 	{
-		Draw();
+		return [[AppDelegate sharedAppDelegate] draw];
 	}
 }
