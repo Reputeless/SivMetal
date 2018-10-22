@@ -14,6 +14,7 @@
 		2CA7762C217DEF7C00CDC6A3 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2CA7762A217DEF7C00CDC6A3 /* MetalKit.framework */; };
 		2CA7762D217DEF7C00CDC6A3 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2CA7762B217DEF7C00CDC6A3 /* Metal.framework */; };
 		2CA7762F217DEF8100CDC6A3 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2CA7762E217DEF8100CDC6A3 /* AppKit.framework */; };
+		2CA77631217E04DC00CDC6A3 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 2CA77630217E04DC00CDC6A3 /* assets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 		2CA7762A217DEF7C00CDC6A3 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		2CA7762B217DEF7C00CDC6A3 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		2CA7762E217DEF8100CDC6A3 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		2CA77630217E04DC00CDC6A3 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,6 +66,7 @@
 		2CA77612217DEEF900CDC6A3 /* S04-Texture */ = {
 			isa = PBXGroup;
 			children = (
+				2CA77630217E04DC00CDC6A3 /* assets */,
 				2CA77624217DEF4800CDC6A3 /* main.mm */,
 				2CA77625217DEF4800CDC6A3 /* Shaders.metal */,
 				2CA77626217DEF4900CDC6A3 /* ShaderTypes.hpp */,
@@ -142,6 +145,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2CA77631217E04DC00CDC6A3 /* assets in Resources */,
 				2CA77617217DEEFA00CDC6A3 /* Assets.xcassets in Resources */,
 				2CA7761A217DEEFA00CDC6A3 /* MainMenu.xib in Resources */,
 			);

@@ -188,7 +188,7 @@ struct InternalSivMetalData
 	[siv.window makeKeyAndOrderFront:self];
 	
 	// view の drawable のピクセルフォーマットを設定する
-	[siv.mtkView setColorPixelFormat:MTLPixelFormatBGRA8Unorm];
+	[siv.mtkView setColorPixelFormat:MTLPixelFormatBGRA8Unorm_sRGB];
 	// depthStencilTexture のフォーマットを設定する
 	[siv.mtkView setDepthStencilPixelFormat:MTLPixelFormatDepth32Float_Stencil8];
 	// MSAA を設定する
@@ -253,6 +253,25 @@ struct InternalSivMetalData
 	
 	siv.vertexBufferManager.init(siv.device);
 	
+	MTKTextureLoader* textureLoader = [[MTKTextureLoader alloc] initWithDevice:siv.device];
+	
+	NSDictionary *textureLoaderOptions =
+	@{
+	  MTKTextureLoaderOptionTextureUsage       : @(MTLTextureUsageShaderRead),
+	  MTKTextureLoaderOptionTextureStorageMode : @(MTLStorageModePrivate)
+	  };
+	
+	siv.texture = [textureLoader newTextureWithContentsOfURL:[[NSBundle mainBundle] URLForResource:@"assets/windmill" withExtension:@"png"]
+													 options:textureLoaderOptions
+													   error:&error];
+	
+	if(!siv.texture || error)
+	{
+		NSLog(@"Failed to load texture");
+		return;
+	}
+	
+	/*
 	const int ImageWidth = 400, ImageHeight = 300;
 	std::vector<uint32> imageData(ImageWidth * ImageHeight, 0xFF8800FFu);
 	
@@ -280,7 +299,7 @@ struct InternalSivMetalData
 				   mipmapLevel:0
 					 withBytes:imageData.data()
 				   bytesPerRow:(ImageWidth * 4)];
-	
+	*/
 	// mainLoop を実行する
 	[self performSelectorOnMainThread:@selector(mainLoop) withObject:nil waitUntilDone:NO];
 }
@@ -811,18 +830,18 @@ void Main()
 		}
 		
 		// テクスチャを描画
-		SivMetal::DrawTexturedRect(Vec2(0, 0), Vec2(320, 240), ColorF(1));
+		SivMetal::DrawTexturedRect(Vec2(0, 0), Vec2(480, 360), ColorF(1));
 		
 		// アニメーション
 		const double t = 300.0 - (SivMetal::FrameCount() * 0.2);
 		
 		// 三角形を描画
-		SivMetal::DrawTriangle(Vec2(400 + t, 100), Vec2(700, 500), Vec2(100, 500), ColorF(1, 0, 0, 1), ColorF(0, 1, 0, 1), ColorF(0, 0, 1, 1));
+		SivMetal::DrawTriangle(Vec2(500 + t, 100), Vec2(800, 500), Vec2(200, 500), ColorF(1, 0, 0, 1), ColorF(0, 1, 0, 1), ColorF(0, 0, 1, 1));
 		
 		// 半透明の三角形を描画
-		SivMetal::DrawTriangle(Vec2(400 - t, 100), Vec2(700, 500), Vec2(100, 500), ColorF(1, 1, 1, 0.8));
+		SivMetal::DrawTriangle(Vec2(500 - t, 100), Vec2(800, 500), Vec2(200, 500), ColorF(1, 1, 1, 0.8));
 		
 		// 円を描画
-		SivMetal::DrawCircle(Vec2(400, 120), 80, ColorF(1.0, 0.5, 0, 1));
+		SivMetal::DrawCircle(Vec2(100, 500), 80, ColorF(1.0, 0.5, 0, 1));
 	}
 }
