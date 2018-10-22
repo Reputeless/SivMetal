@@ -31,6 +31,77 @@ void Main();
 
 static AppDelegate *instance = nil;
 
+class VertexBufferManager
+{
+private:
+	
+	// Triple buffering
+	static constexpr size_t MaxInflightBuffers = 3;
+	
+	// MTLBuffer に格納する最大の頂点個数
+	static constexpr size_t MaxVertices = 16384;
+	
+	// 描画する頂点データ
+	std::vector<Vertex> m_vertices;
+	
+	dispatch_semaphore_t m_frameBoundarySemaphore = dispatch_semaphore_create(MaxInflightBuffers);
+	
+	size_t m_currentVertexBufferIndex = 0;
+	
+	// バッファ
+	std::array<id<MTLBuffer>, 3> m_vertexBuffers;
+	
+public:
+	
+	void init(id<MTLDevice> device)
+	{
+		for(size_t i = 0; i < MaxInflightBuffers; ++i)
+		{
+			m_vertexBuffers[i] = [device newBufferWithLength:(sizeof(Vertex) * MaxVertices)
+													 options:MTLResourceStorageModeShared];
+		}
+	}
+	
+	size_t update()
+	{
+		// Wait until the inflight command buffer has completed its work
+		dispatch_semaphore_wait(m_frameBoundarySemaphore, DISPATCH_TIME_FOREVER);
+		
+		++m_currentVertexBufferIndex %= MaxInflightBuffers;
+		
+		const size_t num_vertices = m_vertices.size();
+		
+		memcpy(m_vertexBuffers[m_currentVertexBufferIndex].contents,
+			   m_vertices.data(), (sizeof(Vertex) * num_vertices));
+		
+		m_vertices.clear();
+		
+		return num_vertices;
+	}
+	
+	auto getCurrentBuffer() const
+	{
+		return m_vertexBuffers[m_currentVertexBufferIndex];
+	}
+	
+	dispatch_semaphore_t getSemaphore() const
+	{
+		return m_frameBoundarySemaphore;
+	}
+	
+	Vertex* prepare(size_t size)
+	{
+		if ((m_vertices.size() + size) > MaxVertices)
+		{
+			return nullptr;
+		}
+		
+		m_vertices.resize(m_vertices.size() + size);
+		
+		return m_vertices.data() + (m_vertices.size() - size);
+	}
+};
+
 struct InternalSivMetalData
 {
 	// アプリケーションを続行するか
@@ -60,21 +131,7 @@ struct InternalSivMetalData
 	// 画面をクリアする色
 	MTLClearColor clearColor;
 	
-	// 描画する頂点データ
-	std::vector<Vertex> vertices;
-	
-	// Triple buffering
-	static constexpr size_t MaxInflightBuffers = 3;
-	
-	// MTLBuffer に格納する最大の頂点個数
-	static constexpr size_t MaxVertices = 16384;
-
-	dispatch_semaphore_t frameBoundarySemaphore = dispatch_semaphore_create(MaxInflightBuffers);
-	
-	size_t currentVertexBufferIndex = 0;
-	
-	// バッファ
-	std::array<id<MTLBuffer>, 3> vertexBuffers;
+	VertexBufferManager vertexBufferManager;
 	
 } siv;
 
@@ -160,11 +217,7 @@ struct InternalSivMetalData
 	// CommandQueue を作成。1 つのアプリケーションに 1 つ作るだけで良い
 	siv.commandQueue = [siv.device newCommandQueue];
 	
-	for(size_t i = 0; i < siv.MaxInflightBuffers; ++i)
-	{
-		siv.vertexBuffers[i] = [siv.device newBufferWithLength:(sizeof(Vertex) * siv.MaxVertices)
-															options:MTLResourceStorageModeShared];
-	}
+	siv.vertexBufferManager.init(siv.device);
 	
 	// mainLoop を実行する
 	[self performSelectorOnMainThread:@selector(mainLoop) withObject:nil waitUntilDone:NO];
@@ -232,17 +285,7 @@ struct InternalSivMetalData
 // 描画処理
 - (void)draw
 {
-	// Wait until the inflight command buffer has completed its work
-	dispatch_semaphore_wait(siv.frameBoundarySemaphore, DISPATCH_TIME_FOREVER);
-	
-	++siv.currentVertexBufferIndex %= siv.MaxInflightBuffers;
-	
-	const size_t num_vertices = siv.vertices.size();
-	
-	memcpy(siv.vertexBuffers[siv.currentVertexBufferIndex].contents,
-		   siv.vertices.data(), (sizeof(Vertex) * num_vertices));
-	
-	siv.vertices.clear();
+	const size_t num_vertices = siv.vertexBufferManager.update();
 	
 	@autoreleasepool
 	{
@@ -280,7 +323,7 @@ struct InternalSivMetalData
 			if (num_vertices)
 			{
 				// 頂点シェーダ用のデータ [[buffer(0)]] をセット
-				[renderCommandEncoder setVertexBuffer:siv.vertexBuffers[siv.currentVertexBufferIndex]
+				[renderCommandEncoder setVertexBuffer:siv.vertexBufferManager.getCurrentBuffer()
 											   offset:0
 											  atIndex:VertexInputIndex::Vertices];
 				
@@ -302,7 +345,7 @@ struct InternalSivMetalData
 		// 現在の drawable を表示させるコマンドを CommandBuffer に登録
 		[commandBuffer presentDrawable:siv.mtkView.currentDrawable];
 		
-		__weak dispatch_semaphore_t semaphore = siv.frameBoundarySemaphore;
+		__weak dispatch_semaphore_t semaphore = siv.vertexBufferManager.getSemaphore();
 		[commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> commandBuffer)
 		{
 			// GPU work is complete
@@ -529,15 +572,13 @@ namespace SivMetal
 	void DrawTriangle(const Vec2& p0, const Vec2& p1, const Vec2& p2,
 					  const ColorF& c0, const ColorF& c1, const ColorF& c2)
 	{
-		const size_t oldSize = siv.vertices.size();
-		
-		if ((sizeof(Vertex) * (oldSize + 3)) > 4096)
+		Vertex* vtx = siv.vertexBufferManager.prepare(3);
+
+		if (!vtx)
 		{
 			return;
 		}
-		
-		siv.vertices.resize(oldSize + 3);
-		Vertex* vtx = siv.vertices.data() + oldSize;
+
 		vtx[0].position = simd::make_float2(p0.x, p0.y);
 		vtx[0].color = simd::make_float4(c0.r, c0.g, c0.b, c0.a);
 		vtx[1].position = simd::make_float2(p1.x, p1.y);
@@ -547,6 +588,7 @@ namespace SivMetal
 	}
 }
 
+using SivMetal::int32;
 using SivMetal::Vec2;
 using SivMetal::ColorF;
 
@@ -560,13 +602,29 @@ void Main()
 	
 	while (SivMetal::Update())
 	{
+		for (int32 y = 0; y < 30; ++y)
+		{
+			for (int32 x = 0; x < 40; ++x)
+			{
+				SivMetal::DrawTriangle(Vec2(x * 20, y * 20),
+									   Vec2(x * 20 + 15, y * 20),
+									   Vec2(x * 20, y * 20 + 15),
+									   ColorF(0.5, 0.8, 0.9));
+				
+				SivMetal::DrawTriangle(Vec2(x * 20, y * 20 + 15),
+									   Vec2(x * 20 + 15, y * 20),
+									   Vec2(x * 20 + 15, y * 20 + 15),
+									   ColorF(0.5, 0.8, 0.9));
+			}
+		}
+		
 		// アニメーション
-		const double x = 300.0 - (SivMetal::FrameCount() * 0.2);
+		const double t = 300.0 - (SivMetal::FrameCount() * 0.2);
 		
 		// 三角形を描画
-		SivMetal::DrawTriangle(Vec2(400 + x, 100), Vec2(700, 500), Vec2(100, 500), ColorF(1, 0, 0, 1), ColorF(0, 1, 0, 1), ColorF(0, 0, 1, 1));
+		SivMetal::DrawTriangle(Vec2(400 + t, 100), Vec2(700, 500), Vec2(100, 500), ColorF(1, 0, 0, 1), ColorF(0, 1, 0, 1), ColorF(0, 0, 1, 1));
 		
 		// 半透明の三角形を描画
-		SivMetal::DrawTriangle(Vec2(400 - x, 100), Vec2(700, 500), Vec2(100, 500), ColorF(1, 1, 1, 0.5));
+		SivMetal::DrawTriangle(Vec2(400 - t, 100), Vec2(700, 500), Vec2(100, 500), ColorF(1, 1, 1, 0.8));
 	}
 }

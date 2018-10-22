@@ -23,7 +23,7 @@ struct RasterizerData
 vertex RasterizerData
 vertexShader(uint vertexID [[vertex_id]], // 頂点番号
 			 // セットされた頂点データ [[buffer(0)]]
-			 constant Vertex *vertices [[buffer(VertexInputIndex::Vertices)]],
+			 device Vertex *vertices [[buffer(VertexInputIndex::Vertices)]],
 			 // セットされた描画領域の解像度 [[buffer(1)]]
 			 constant float2& viewportSize [[buffer(VertexInputIndex::ViewportSize)]])
 {
