@@ -8,8 +8,11 @@ An experimental Metal project for OpenSiv3D
 ![screenshot](S02-TwoTriangles/S02-TwoTriangles/screenshot.png)
 
 ## S03. Shapes
+![screenshot](S03-Shapes/S03-Shapes/screenshot.png)
 
 ## S04. Texture
+
+## S05. Rendering States
 
 
 ## References
