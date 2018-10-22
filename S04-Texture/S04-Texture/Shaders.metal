@@ -16,6 +16,7 @@ using namespace metal;
 struct RasterizerData
 {
 	float4 clipSpacePosition [[position]]; // クリップスペース座標（[[position]] attribute を使用）
+	float2 textureCoordinate;  // テクスチャ UV 座標（補間される）
 	float4 color; // 色（補間される）
 };
 
@@ -33,6 +34,7 @@ vertexShader(uint vertexID [[vertex_id]], // 頂点番号
 
 	RasterizerData out;
 	out.clipSpacePosition = float4(pos.x, -pos.y, 0.0f, 1.0f);
+	out.textureCoordinate = vertices[vertexID].textureCoordinate;
 	out.color = vertices[vertexID].color;
 	return out;
 }
@@ -43,4 +45,18 @@ fragment float4
 fragmentShader(RasterizerData in [[stage_in]])
 {
 	return in.color;
+}
+
+// フラグメントシェーダ用の関数
+// [[stage_in]] attribute は、このデータが rasterization ステージから送られてくることを表す
+fragment float4
+fragmentShaderTexture(RasterizerData in [[stage_in]],
+					  texture2d<half> colorTexture [[texture(0)]])
+{
+	constexpr sampler textureSampler(mag_filter::linear, min_filter::linear);
+
+	// Sample the texture to obtain a color
+	const half4 colorSample = colorTexture.sample(textureSampler, in.textureCoordinate);
+	
+	return float4(colorSample) * in.color;
 }

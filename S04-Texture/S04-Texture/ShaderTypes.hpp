@@ -29,5 +29,6 @@ struct VertexInputIndex
 struct Vertex
 {
 	simd::float2 position;  // 2D 座標
+	simd::float2 textureCoordinate;  // テクスチャ UV 座標
     simd::float4 color;     // RGBA カラー
 };

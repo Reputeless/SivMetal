@@ -31,6 +31,13 @@ void Main();
 
 static AppDelegate *instance = nil;
 
+struct Batch
+{
+	bool isTextured = false;
+	
+	size_t count = 0;
+};
+
 class VertexBufferManager
 {
 private:
@@ -51,6 +58,8 @@ private:
 	// バッファ
 	std::array<id<MTLBuffer>, 3> m_vertexBuffers;
 	
+	std::vector<Batch> m_batches;
+	
 public:
 	
 	void init(id<MTLDevice> device)
@@ -62,7 +71,7 @@ public:
 		}
 	}
 	
-	size_t update()
+	std::vector<Batch> update()
 	{
 		// Wait until the inflight command buffer has completed its work
 		dispatch_semaphore_wait(m_frameBoundarySemaphore, DISPATCH_TIME_FOREVER);
@@ -76,7 +85,7 @@ public:
 		
 		m_vertices.clear();
 		
-		return num_vertices;
+		return std::move(m_batches);
 	}
 	
 	auto getCurrentBuffer() const
@@ -89,11 +98,20 @@ public:
 		return m_frameBoundarySemaphore;
 	}
 	
-	Vertex* prepare(size_t size)
+	Vertex* prepare(size_t size, bool isTextured)
 	{
 		if ((m_vertices.size() + size) > MaxVertices)
 		{
 			return nullptr;
+		}
+		
+		if (m_batches.empty() || (m_batches.back().isTextured != isTextured))
+		{
+			m_batches.push_back(Batch{ isTextured, size });
+		}
+		else
+		{
+			m_batches.back().count += size;
 		}
 		
 		m_vertices.resize(m_vertices.size() + size);
@@ -123,7 +141,8 @@ struct InternalSivMetalData
 	AppMTKView* mtkView;
 	
 	// RenderPipelineState: レンダリングパイプラインを表現するオブジェクト
-	id<MTLRenderPipelineState> pipelineState;
+	id<MTLRenderPipelineState> pipelineState0;
+	id<MTLRenderPipelineState> pipelineState1;
 	
 	// CommandBuffer を発行するオブジェクト
 	id<MTLCommandQueue> commandQueue;
@@ -132,6 +151,9 @@ struct InternalSivMetalData
 	MTLClearColor clearColor;
 	
 	VertexBufferManager vertexBufferManager;
+	
+	// The Metal texture object
+	id<MTLTexture> texture;
 	
 } siv;
 
@@ -184,13 +206,15 @@ struct InternalSivMetalData
 	// シェーダ関数 `vertexShader` をロードする
 	id<MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
 	// シェーダ関数 `fragmentShader` をロードする
-	id<MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:@"fragmentShader"];
+	id<MTLFunction> fragmentFunction0 = [defaultLibrary newFunctionWithName:@"fragmentShader"];
+	// シェーダ関数 `fragmentShaderTexture` をロードする
+	id<MTLFunction> fragmentFunction1 = [defaultLibrary newFunctionWithName:@"fragmentShaderTexture"];
 	
 	// RenderPipelineState を作成するための設定 (RenderPipelineDescriptor) を記述する
 	MTLRenderPipelineDescriptor *pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
 	pipelineStateDescriptor.label = @"Simple Pipeline"; // ラベルをつけておくとデバッグ時に便利（任意）
 	pipelineStateDescriptor.vertexFunction = vertexFunction; // 頂点シェーダの関数
-	pipelineStateDescriptor.fragmentFunction = fragmentFunction; // フラグメントシェーダの関数
+	pipelineStateDescriptor.fragmentFunction = fragmentFunction0; // フラグメントシェーダの関数
 	pipelineStateDescriptor.colorAttachments[0].pixelFormat = siv.mtkView.colorPixelFormat; // 出力先のフォーマット
 	pipelineStateDescriptor.colorAttachments[0].blendingEnabled = YES; // アルファブレンディングのための設定
 	pipelineStateDescriptor.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorSourceAlpha;
@@ -205,9 +229,19 @@ struct InternalSivMetalData
 	
 	// RenderPipelineState を作成する
 	NSError *error = NULL;
-	siv.pipelineState = [siv.device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
+	siv.pipelineState0 = [siv.device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
 																   error:&error];
-	if (!siv.pipelineState)
+	if (!siv.pipelineState0)
+	{
+		// RenderPipelineDescriptor の記述が間違っているとエラー
+		NSLog(@"#SivMetal# Failed to created pipeline state, error %@", error);
+		return;
+	}
+	
+	pipelineStateDescriptor.fragmentFunction = fragmentFunction1; // フラグメントシェーダの関数
+	siv.pipelineState1 = [siv.device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
+																	error:&error];
+	if (!siv.pipelineState1)
 	{
 		// RenderPipelineDescriptor の記述が間違っているとエラー
 		NSLog(@"#SivMetal# Failed to created pipeline state, error %@", error);
@@ -218,6 +252,34 @@ struct InternalSivMetalData
 	siv.commandQueue = [siv.device newCommandQueue];
 	
 	siv.vertexBufferManager.init(siv.device);
+	
+	const int ImageWidth = 400, ImageHeight = 300;
+	std::vector<uint32> imageData(ImageWidth * ImageHeight, 0xFF8800FFu);
+	
+	MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
+	
+	// Indicate that each pixel has a blue, green, red, and alpha channel, where each channel is
+	// an 8-bit unsigned normalized value (i.e. 0 maps to 0.0 and 255 maps to 1.0)
+	textureDescriptor.pixelFormat = MTLPixelFormatRGBA8Unorm;
+	
+	// Set the pixel dimensions of the texture
+	textureDescriptor.width = ImageWidth;
+	textureDescriptor.height = ImageHeight;
+	
+	// Create the texture from the device by using the descriptor
+	siv.texture = [siv.device newTextureWithDescriptor:textureDescriptor];
+	
+	MTLRegion region =
+	{
+		{ 0, 0, 0 },                   // MTLOrigin
+		{ ImageWidth, ImageHeight, 1} // MTLSize
+	};
+	
+	// Copy the bytes from our data object into the texture
+	[siv.texture replaceRegion:region
+				   mipmapLevel:0
+					 withBytes:imageData.data()
+				   bytesPerRow:(ImageWidth * 4)];
 	
 	// mainLoop を実行する
 	[self performSelectorOnMainThread:@selector(mainLoop) withObject:nil waitUntilDone:NO];
@@ -285,7 +347,7 @@ struct InternalSivMetalData
 // 描画処理
 - (void)draw
 {
-	const size_t num_vertices = siv.vertexBufferManager.update();
+	const std::vector<Batch> batches = siv.vertexBufferManager.update();
 	
 	@autoreleasepool
 	{
@@ -312,15 +374,12 @@ struct InternalSivMetalData
 			// RenderCommandEncoder にビューポートを設定する
 			[renderCommandEncoder setViewport:(MTLViewport){0, 0, viewportSize.x, viewportSize.y, -1.0, 1.0 }];
 			
-			// RenderPipelineState を設定する
-			[renderCommandEncoder setRenderPipelineState:siv.pipelineState];
-			
 			// ウィンドウの表示スケーリングを考慮
 			const float scale = [siv.window backingScaleFactor];;
 			viewportSize.x /= scale;
 			viewportSize.y /= scale;
 			
-			if (num_vertices)
+			if (!batches.empty())
 			{
 				// 頂点シェーダ用のデータ [[buffer(0)]] をセット
 				[renderCommandEncoder setVertexBuffer:siv.vertexBufferManager.getCurrentBuffer()
@@ -332,10 +391,31 @@ struct InternalSivMetalData
 											  length:sizeof(viewportSize)
 											 atIndex:VertexInputIndex::ViewportSize];
 				
-				// セットされた頂点データを使って頂点を描画
-				[renderCommandEncoder drawPrimitives:MTLPrimitiveTypeTriangle
-										 vertexStart:0
-										 vertexCount:num_vertices];
+				[renderCommandEncoder setFragmentTexture:siv.texture
+												 atIndex:0];
+				
+				size_t vertexOffset = 0;
+				
+				for (const auto& batch : batches)
+				{
+					if (batch.isTextured)
+					{
+						// RenderPipelineState を設定する
+						[renderCommandEncoder setRenderPipelineState:siv.pipelineState1];
+					}
+					else
+					{
+						// RenderPipelineState を設定する
+						[renderCommandEncoder setRenderPipelineState:siv.pipelineState0];
+					}
+					
+					// セットされた頂点データを使って頂点を描画
+					[renderCommandEncoder drawPrimitives:MTLPrimitiveTypeTriangle
+											 vertexStart:vertexOffset
+											 vertexCount:batch.count];
+					
+					vertexOffset += batch.count;
+				}
 			}
 			
 			// RenderCommandEncoder によるコマンド登録の終了
@@ -534,6 +614,10 @@ namespace SivMetal
 					  const ColorF& c0, const ColorF& c1, const ColorF& c2);
 	
 	void DrawRect(const Vec2& pos, const Vec2& size, const ColorF& color);
+	
+	void DrawCircle(const Vec2& center, double r, const ColorF& color);
+	
+	void DrawTexturedRect(const Vec2& pos, const Vec2& size, const ColorF& color);
 }
 
 namespace SivMetal
@@ -585,7 +669,7 @@ namespace SivMetal
 	void DrawTriangle(const Vec2& p0, const Vec2& p1, const Vec2& p2,
 					  const ColorF& c0, const ColorF& c1, const ColorF& c2)
 	{
-		Vertex* vtx = siv.vertexBufferManager.prepare(3);
+		Vertex* vtx = siv.vertexBufferManager.prepare(3, false);
 
 		if (!vtx)
 		{
@@ -602,7 +686,7 @@ namespace SivMetal
 	
 	void DrawRect(const Vec2& pos, const Vec2& size, const ColorF& color)
 	{
-		Vertex* vtx = siv.vertexBufferManager.prepare(6);
+		Vertex* vtx = siv.vertexBufferManager.prepare(6, false);
 		
 		if (!vtx)
 		{
@@ -634,7 +718,7 @@ namespace SivMetal
 			: static_cast<uint32>(std::min(19 + (r - 5.0) / 2.2, 255.0));
 		const size_t vertexSize = quality * 3;
 		
-		Vertex* vtx = siv.vertexBufferManager.prepare(vertexSize);
+		Vertex* vtx = siv.vertexBufferManager.prepare(vertexSize, false);
 		
 		if (!vtx)
 		{
@@ -658,6 +742,45 @@ namespace SivMetal
 		}
 		
 		for (size_t i = 0; i < vertexSize; ++i)
+		{
+			vtx[i].color = col;
+		}
+	}
+	
+	void DrawTexturedRect(const Vec2& pos, const Vec2& size, const ColorF& color)
+	{
+		Vertex* vtx = siv.vertexBufferManager.prepare(6, true);
+		
+		if (!vtx)
+		{
+			return;
+		}
+		
+		const simd::float2 p0 = simd::make_float2(pos.x, pos.y);
+		const simd::float2 p1 = simd::make_float2(pos.x + size.x, pos.y);
+		const simd::float2 p2 = simd::make_float2(pos.x, pos.y + size.y);
+		const simd::float2 p3 = simd::make_float2(pos.x + size.x, pos.y + size.y);
+		const simd::float2 t0 = simd::make_float2(0.0f, 0.0f);
+		const simd::float2 t1 = simd::make_float2(1.0f, 0.0f);
+		const simd::float2 t2 = simd::make_float2(0.0f, 1.0f);
+		const simd::float2 t3 = simd::make_float2(1.0f, 1.0f);
+		const simd::float4 col = simd::make_float4(color.r, color.g, color.b, color.a);
+		
+		vtx[0].position = p0;
+		vtx[1].position = p1;
+		vtx[2].position = p2;
+		vtx[3].position = p2;
+		vtx[4].position = p1;
+		vtx[5].position = p3;
+		
+		vtx[0].textureCoordinate = t0;
+		vtx[1].textureCoordinate = t1;
+		vtx[2].textureCoordinate = t2;
+		vtx[3].textureCoordinate = t2;
+		vtx[4].textureCoordinate = t1;
+		vtx[5].textureCoordinate = t3;
+		
+		for (size_t i = 0; i < 6; ++i)
 		{
 			vtx[i].color = col;
 		}
@@ -686,6 +809,9 @@ void Main()
 				SivMetal::DrawRect(Vec2(x * 20, y * 20), Vec2(15, 15), ColorF(0.5, 0.7, 0.9));
 			}
 		}
+		
+		// テクスチャを描画
+		SivMetal::DrawTexturedRect(Vec2(0, 0), Vec2(320, 240), ColorF(1));
 		
 		// アニメーション
 		const double t = 300.0 - (SivMetal::FrameCount() * 0.2);
