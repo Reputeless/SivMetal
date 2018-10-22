@@ -426,6 +426,17 @@ namespace SivMetal
 	using uint32	= std::uint32_t;
 	using uint64	= std::uint64_t;
 	
+	namespace Math
+	{
+		inline constexpr double Pi = 3.1415926535897932385;
+
+		inline constexpr float PiF = 3.1415926535897932385f;
+
+		inline constexpr double TwoPi = Pi * 2.0;
+
+		inline constexpr float TwoPiF = PiF * 2.0f;
+	}
+	
 	struct Point
 	{
 		using value_type = int32;
@@ -602,7 +613,7 @@ namespace SivMetal
 		const simd::float2 p1 = simd::make_float2(pos.x + size.x, pos.y);
 		const simd::float2 p2 = simd::make_float2(pos.x, pos.y + size.y);
 		const simd::float2 p3 = simd::make_float2(pos.x + size.x, pos.y + size.y);
-		const simd::float4 c = simd::make_float4(color.r, color.g, color.b, color.a);
+		const simd::float4 col = simd::make_float4(color.r, color.g, color.b, color.a);
 		
 		vtx[0].position = p0;
 		vtx[1].position = p1;
@@ -613,7 +624,42 @@ namespace SivMetal
 		
 		for (size_t i = 0; i < 6; ++i)
 		{
-			vtx[i].color = c;
+			vtx[i].color = col;
+		}
+	}
+	
+	void DrawCircle(const Vec2& center, double r, const ColorF& color)
+	{
+		const uint32 quality = (r <= 5.0) ? (static_cast<uint32>(r + 4) * 2)
+			: static_cast<uint32>(std::min(19 + (r - 5.0) / 2.2, 255.0));
+		const size_t vertexSize = quality * 3;
+		
+		Vertex* vtx = siv.vertexBufferManager.prepare(vertexSize);
+		
+		if (!vtx)
+		{
+			return;
+		}
+		
+		const float rd = Math::TwoPiF / (quality - 1);
+		const simd::float2 c = simd::make_float2(center.x, center.y);
+		const simd::float4 col = simd::make_float4(color.r, color.g, color.b, color.a);
+		simd::float2 p0 = simd::make_float2(center.x, center.y - r);
+		
+		for (size_t i = 0; i < quality; ++i)
+		{
+			const float rad = rd * (i - 1.0f);
+			const simd::float2 p1 = simd::make_float2(center.x + r * std::cos(rad),
+													  center.y - r * std::sin(rad));
+			vtx[i * 3 + 0].position = p0;
+			vtx[i * 3 + 1].position = p1;
+			vtx[i * 3 + 2].position = c;
+			p0 = p1;
+		}
+		
+		for (size_t i = 0; i < vertexSize; ++i)
+		{
+			vtx[i].color = col;
 		}
 	}
 }
@@ -636,7 +682,8 @@ void Main()
 		{
 			for (int32 x = 0; x < 40; ++x)
 			{
-				SivMetal::DrawRect(Vec2(x * 20, y * 20), Vec2(15, 15), ColorF(0.5, 0.8, 0.9));
+				// 長方形を描画
+				SivMetal::DrawRect(Vec2(x * 20, y * 20), Vec2(15, 15), ColorF(0.5, 0.7, 0.9));
 			}
 		}
 		
@@ -648,5 +695,8 @@ void Main()
 		
 		// 半透明の三角形を描画
 		SivMetal::DrawTriangle(Vec2(400 - t, 100), Vec2(700, 500), Vec2(100, 500), ColorF(1, 1, 1, 0.8));
+		
+		// 円を描画
+		SivMetal::DrawCircle(Vec2(400, 120), 80, ColorF(1.0, 0.5, 0, 1));
 	}
 }
