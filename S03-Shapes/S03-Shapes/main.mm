@@ -88,9 +88,9 @@ struct InternalSivMetalData
 // アプリケーションの初期化
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
-	instance = self;
-	
 	NSLog(@"#SivMetal# (1) applicationDidFinishLaunching");
+
+	instance = self;
 	
 	// デフォルトの GPU デバイスを取得する
 	siv.device = MTLCreateSystemDefaultDevice();

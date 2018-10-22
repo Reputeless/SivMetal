@@ -15,8 +15,8 @@ using namespace metal;
 // 頂点シェーダから rasterization ステージに送るデータ
 struct RasterizerData
 {
-    float4 clipSpacePosition [[position]]; // クリップスペース座標（[[position]] attribute を使用）
-    float4 color; // 色（補間される）
+	float4 clipSpacePosition [[position]]; // クリップスペース座標（[[position]] attribute を使用）
+	float4 color; // 色（補間される）
 };
 
 // 頂点シェーダ用の関数

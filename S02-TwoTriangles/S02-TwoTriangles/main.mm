@@ -28,6 +28,8 @@
 
 void Main();
 
+static AppDelegate *instance = nil;
+
 struct InternalSivMetalData
 {
 	// アプリケーションを続行するか
@@ -66,13 +68,15 @@ struct InternalSivMetalData
 
 + (AppDelegate *)sharedAppDelegate
 {
-	return (AppDelegate *)[NSApplication sharedApplication].delegate;
+	return instance;
 }
 
 // アプリケーションの初期化
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
 	NSLog(@"#SivMetal# (1) applicationDidFinishLaunching");
+	
+	instance = self;
 	
 	// デフォルトの GPU デバイスを取得する
 	siv.device = MTLCreateSystemDefaultDevice();
