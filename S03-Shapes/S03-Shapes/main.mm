@@ -521,6 +521,8 @@ namespace SivMetal
 	
 	void DrawTriangle(const Vec2& p0, const Vec2& p1, const Vec2& p2,
 					  const ColorF& c0, const ColorF& c1, const ColorF& c2);
+	
+	void DrawRect(const Vec2& pos, const Vec2& size, const ColorF& color);
 }
 
 namespace SivMetal
@@ -586,6 +588,34 @@ namespace SivMetal
 		vtx[2].position = simd::make_float2(p2.x, p2.y);
 		vtx[2].color = simd::make_float4(c2.r, c2.g, c2.b, c2.a);
 	}
+	
+	void DrawRect(const Vec2& pos, const Vec2& size, const ColorF& color)
+	{
+		Vertex* vtx = siv.vertexBufferManager.prepare(6);
+		
+		if (!vtx)
+		{
+			return;
+		}
+		
+		const simd::float2 p0 = simd::make_float2(pos.x, pos.y);
+		const simd::float2 p1 = simd::make_float2(pos.x + size.x, pos.y);
+		const simd::float2 p2 = simd::make_float2(pos.x, pos.y + size.y);
+		const simd::float2 p3 = simd::make_float2(pos.x + size.x, pos.y + size.y);
+		const simd::float4 c = simd::make_float4(color.r, color.g, color.b, color.a);
+		
+		vtx[0].position = p0;
+		vtx[1].position = p1;
+		vtx[2].position = p2;
+		vtx[3].position = p2;
+		vtx[4].position = p1;
+		vtx[5].position = p3;
+		
+		for (size_t i = 0; i < 6; ++i)
+		{
+			vtx[i].color = c;
+		}
+	}
 }
 
 using SivMetal::int32;
@@ -606,15 +636,7 @@ void Main()
 		{
 			for (int32 x = 0; x < 40; ++x)
 			{
-				SivMetal::DrawTriangle(Vec2(x * 20, y * 20),
-									   Vec2(x * 20 + 15, y * 20),
-									   Vec2(x * 20, y * 20 + 15),
-									   ColorF(0.5, 0.8, 0.9));
-				
-				SivMetal::DrawTriangle(Vec2(x * 20, y * 20 + 15),
-									   Vec2(x * 20 + 15, y * 20),
-									   Vec2(x * 20 + 15, y * 20 + 15),
-									   ColorF(0.5, 0.8, 0.9));
+				SivMetal::DrawRect(Vec2(x * 20, y * 20), Vec2(15, 15), ColorF(0.5, 0.8, 0.9));
 			}
 		}
 		
