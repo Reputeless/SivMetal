@@ -166,7 +166,7 @@ struct InternalSivMetalData
 	[siv.window makeKeyAndOrderFront:self];
 	
 	// view の drawable のピクセルフォーマットを設定する
-	[siv.mtkView setColorPixelFormat:MTLPixelFormatBGRA8Unorm];
+	[siv.mtkView setColorPixelFormat:MTLPixelFormatBGRA8Unorm_sRGB];
 	// depthStencilTexture のフォーマットを設定する
 	[siv.mtkView setDepthStencilPixelFormat:MTLPixelFormatDepth32Float_Stencil8];
 	// MSAA を設定する

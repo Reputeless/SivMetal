@@ -830,16 +830,16 @@ void Main()
 		}
 		
 		// テクスチャを描画
-		SivMetal::DrawTexturedRect(Vec2(0, 0), Vec2(480, 360), ColorF(1));
+		SivMetal::DrawTexturedRect(Vec2(0, 0), Vec2(480, 320), ColorF(1));
 		
 		// アニメーション
 		const double t = 300.0 - (SivMetal::FrameCount() * 0.2);
 		
 		// 三角形を描画
-		SivMetal::DrawTriangle(Vec2(500 + t, 100), Vec2(800, 500), Vec2(200, 500), ColorF(1, 0, 0, 1), ColorF(0, 1, 0, 1), ColorF(0, 0, 1, 1));
+		SivMetal::DrawTriangle(Vec2(500 + t, 200), Vec2(800, 600), Vec2(200, 600), ColorF(1, 0, 0, 1), ColorF(0, 1, 0, 1), ColorF(0, 0, 1, 1));
 		
 		// 半透明の三角形を描画
-		SivMetal::DrawTriangle(Vec2(500 - t, 100), Vec2(800, 500), Vec2(200, 500), ColorF(1, 1, 1, 0.8));
+		SivMetal::DrawTriangle(Vec2(500 - t, 200), Vec2(800, 600), Vec2(200, 600), ColorF(1, 1, 1, 0.8));
 		
 		// 円を描画
 		SivMetal::DrawCircle(Vec2(100, 500), 80, ColorF(1.0, 0.5, 0, 1));

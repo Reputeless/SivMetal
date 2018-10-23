@@ -86,13 +86,13 @@ struct InternalSivMetalData
 	[siv.window makeKeyAndOrderFront:self];
 	
 	// view の drawable のピクセルフォーマットを設定する
-	[siv.mtkView setColorPixelFormat:MTLPixelFormatBGRA8Unorm];
+	[siv.mtkView setColorPixelFormat:MTLPixelFormatBGRA8Unorm_sRGB];
 	// depthStencilTexture のフォーマットを設定する
 	[siv.mtkView setDepthStencilPixelFormat:MTLPixelFormatDepth32Float_Stencil8];
 	// MSAA を設定する
 	// 1, 4 はすべての macOS でサポートされている
 	// 参考: https://developer.apple.com/documentation/metal/mtldevice/1433355-supportstexturesamplecount
-	[siv.mtkView setSampleCount:1];
+	[siv.mtkView setSampleCount:4];
 	// drawable クリア時の色を設定する (RGBA)
 	[siv.mtkView setClearColor:MTLClearColorMake(0.8, 0.9, 1.0, 1.0)];
 	// mainLoop から draw するための設定
